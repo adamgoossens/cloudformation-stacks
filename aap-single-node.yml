@@ -1,0 +1,77 @@
+Parameters:
+  VmKeyPairName:
+    Description: Name of the existing EC2 keypair
+    Type: String
+    Default: 'AapKey'
+  CfnTemplateBucket:
+    Description: Full URL to the bucket holding CFN templates
+    Type: String
+  RHEL8AmiId:
+    Description: AMI ID for RHEL8 in the region we're deploying in
+    Type: String
+    Default: 'ami-0ad5c7d0eee639fe1'
+  ControllerVmSize:
+    Description: Instance size for the controller
+    Type: String
+    Default: t2.large
+
+Resources:
+  VpcStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL:
+        Fn::Join:
+          - '/'
+          - - !Join ['', ['https://', !Ref CfnTemplateBucket, '.s3.', !Ref AWS::Region, '.amazonaws.com'] ]
+            - 'vpc-subnet-igw.yml'
+      Parameters:
+        VpcCidr: '10.1.0.0/16'
+        SubnetCidr: '10.1.0.0/24'
+        AppName: 'aap-single-node'
+        
+  ControllerSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Allow SSH and HTTPS
+      VpcId:
+        Fn::GetAtt:
+          - VpcStack
+          - Outputs.VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: -1
+      Tags:
+        - Key: Name
+          Value: Management
+
+  ControllerVm:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: !Ref RHEL8AmiId
+      KeyName: !Ref VmKeyPairName
+      InstanceType: !Ref ControllerVmSize
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: "true"
+          DeviceIndex: "0"
+          GroupSet:
+            - Ref: ControllerSecurityGroup
+          SubnetId:
+            Fn::GetAtt:
+              - VpcStack
+              - Outputs.SubnetId
+      Tags:
+        - Key: Name
+          Value: 'AAP2 Controller Node'
+
+Outputs:
+  ControllerPublicIp:
+    Value: !GetAtt ControllerVm.PublicDnsName

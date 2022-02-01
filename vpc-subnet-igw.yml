@@ -1,3 +1,4 @@
+AWSTemplateFormatVersion: 2010-09-09
 Parameters:
   VpcCidr:
     Type: String
@@ -66,7 +67,7 @@ Resources:
 
   DefaultGwRoute:
     Type: 'AWS::EC2::Route'
-    Conditions: InternetConnected
+    Condition: InternetConnected
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
       RouteTableId: !Ref RouteTable
@@ -74,7 +75,7 @@ Resources:
 
   Igw:
     Type: 'AWS::EC2::InternetGateway'
-    Conditions: InternetConnected
+    Condition: InternetConnected
     Properties:
       Tags:
         - Key: Name
@@ -82,7 +83,7 @@ Resources:
 
   IgwAttachment:
     Type: 'AWS::EC2::VPCGatewayAttachment'
-    Conditions: InternetConnected
+    Condition: InternetConnected
     Properties:
       VpcId: !Ref Vpc
       InternetGatewayId: !Ref Igw
